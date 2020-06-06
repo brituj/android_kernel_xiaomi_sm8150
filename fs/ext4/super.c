@@ -41,6 +41,7 @@
 #include <linux/cleancache.h>
 #include <linux/uaccess.h>
 #include <linux/unicode.h>
+#include <linux/iversion.h>
 
 #include <linux/kthread.h>
 #include <linux/freezer.h>
@@ -1019,7 +1020,7 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
 	if (!ei)
 		return NULL;
 
-	ei->vfs_inode.i_version = 1;
+	inode_set_iversion(&ei->vfs_inode, 1);
 	spin_lock_init(&ei->i_raw_lock);
 	INIT_LIST_HEAD(&ei->i_prealloc_list);
 	spin_lock_init(&ei->i_prealloc_lock);
@@ -5232,7 +5233,8 @@ static void ext4_umount_end(struct super_block *sb, int flags)
 	 * next boot.
 	 */
 	if ((flags & MNT_FORCE) || atomic_read(&sb->s_active) > 1) {
-		ext4_msg(sb, KERN_ERR,
+		if (0)
+			ext4_msg(sb, KERN_ERR,
 			"errors=remount-ro for active namespaces on umount %x",
 						flags);
 		clear_opt(sb, ERRORS_PANIC);

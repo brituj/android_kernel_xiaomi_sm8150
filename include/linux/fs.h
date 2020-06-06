@@ -644,7 +644,7 @@ struct inode {
 		struct hlist_head	i_dentry;
 		struct rcu_head		i_rcu;
 	};
-	u64			i_version;
+	atomic64_t		i_version;
 	atomic64_t		i_sequence; /* see futex */
 	atomic_t		i_count;
 	atomic_t		i_dio_count;
@@ -2040,6 +2040,10 @@ static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
  * I_OVL_INUSE		Used by overlayfs to get exclusive ownership on upper
  *			and work dirs among overlayfs mounts.
  *
+ * I_SYNC_QUEUED	Inode is queued in b_io or b_more_io writeback lists.
+ *			Used to detect that mark_inode_dirty() should not move
+ * 			inode between dirty lists.
+ *
  * Q: What is the difference between I_WILL_FREE and I_FREEING?
  */
 #define I_DIRTY_SYNC		(1 << 0)
@@ -2060,7 +2064,8 @@ static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
 #define __I_DIRTY_TIME_EXPIRED	12
 #define I_DIRTY_TIME_EXPIRED	(1 << __I_DIRTY_TIME_EXPIRED)
 #define I_WB_SWITCH		(1 << 13)
-#define I_OVL_INUSE			(1 << 14)
+#define I_OVL_INUSE		(1 << 14)
+#define I_SYNC_QUEUED		(1 << 16)
 
 #define I_DIRTY (I_DIRTY_SYNC | I_DIRTY_DATASYNC | I_DIRTY_PAGES)
 #define I_DIRTY_ALL (I_DIRTY | I_DIRTY_TIME)
@@ -2091,21 +2096,6 @@ static inline void inode_dec_link_count(struct inode *inode)
 {
 	drop_nlink(inode);
 	mark_inode_dirty(inode);
-}
-
-/**
- * inode_inc_iversion - increments i_version
- * @inode: inode that need to be updated
- *
- * Every time the inode is modified, the i_version field will be incremented.
- * The filesystem has to be mounted with i_version flag
- */
-
-static inline void inode_inc_iversion(struct inode *inode)
-{
-       spin_lock(&inode->i_lock);
-       inode->i_version++;
-       spin_unlock(&inode->i_lock);
 }
 
 enum file_time_flags {
